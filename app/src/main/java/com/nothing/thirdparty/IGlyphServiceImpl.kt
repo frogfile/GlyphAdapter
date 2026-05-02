@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import kotlin.math.floor
 
 
 class IGlyphServiceImpl(private val context: Context) : IGlyphService.Stub() {
@@ -19,89 +20,17 @@ class IGlyphServiceImpl(private val context: Context) : IGlyphService.Stub() {
                 "' > /sys/class/leds/led_strips/frame_brightness\n"
     }
 
-    private val test = arrayOf(
-        625,
-        625,
-        625,
-        1000,
-        1000,
-        1000,
-        1000,
-        1000,
-        1000,
-        1000,
-        1000,
-        1000,
-        1000,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625,
-        625
-    ).toIntArray()
-    private val off: IntArray = arrayOf(
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-    ).toIntArray()
-
     private fun bindglyphService() {
         Log.i(TAG, "BOUND")
     }
 
     override fun setFrameColors(iArray: IntArray?) {
-        val clamped = iArray?.map { b -> (b.toFloat() / 4000 * 1000).toInt() }?.toIntArray()
+        val clamped = iArray?.map { b -> floor(b.toFloat() / 4000 * 1000).toInt() }?.toIntArray()
 
         suOut?.writeBytes(cmd(clamped));
         suOut?.flush();
 
-        Log.i(TAG, cmd(clamped));
-
+        Log.d(TAG, cmd(clamped));
     }
 
     override fun openSession() {
@@ -111,15 +40,25 @@ class IGlyphServiceImpl(private val context: Context) : IGlyphService.Stub() {
 
             suOut = DataOutputStream(su?.outputStream)
             suIn = DataInputStream(su?.inputStream)
+
+            suOut?.writeBytes("echo 1 > /sys/class/leds/led_strips/always_on\n");
+            suOut?.flush();
+
+            suOut?.writeBytes("echo 1 > /sys/class/leds/led_strips/operating_mode\n");
+            suOut?.flush();
+
         } catch (e: Exception) {
             Log.e(TAG, e.message.toString())
         }
 
-
-        Log.i(TAG, "OPENEND")
+        Log.i(TAG, "OPENED")
     }
 
     override fun closeSession() {
+        suOut?.writeBytes("exit\n");
+        suOut?.flush();
+
+
         suOut?.close()
         su?.destroy();
 

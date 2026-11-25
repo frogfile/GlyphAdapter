@@ -15,9 +15,11 @@ class IGlyphServiceImpl(private val context: Context) : IGlyphService.Stub() {
     private var suIn: DataInputStream? = null;
 
     private fun cmd(arr: IntArray?): String {
-        return "echo '" +
-                arr.contentToString().removePrefix("[").removeSuffix("]") +
-                "' > /sys/class/leds/led_strips/frame_brightness\n"
+        if (arr == null) return ""
+
+        // The Phone (2) sysfs interface expects space-separated values.
+        val values = arr.joinToString(" ")
+        return "printf '%s\\n' '$values' > /sys/class/leds/led_strips/frame_brightness\n"
     }
 
     private fun bindglyphService() {
@@ -25,12 +27,18 @@ class IGlyphServiceImpl(private val context: Context) : IGlyphService.Stub() {
     }
 
     override fun setFrameColors(iArray: IntArray?) {
-        val clamped = iArray?.map { b -> floor(b.toFloat() / 4000 * 1000).toInt() }?.toIntArray()
+        if (iArray == null) return
 
-        suOut?.writeBytes(cmd(clamped));
-        suOut?.flush();
+        // Convert Glyph brightness (0..4096) to LED brightness (0..255).
+        val clamped = iArray.map { value ->
+            val input = value.coerceIn(0, 4096)
+            ((input.toLong() * 255L + 2048L) / 4096L).toInt()
+        }.toIntArray()
 
-        Log.d(TAG, cmd(clamped));
+        suOut?.writeBytes(cmd(clamped))
+        suOut?.flush()
+
+        Log.d(TAG, "Frame sent: ${clamped.size} channels")
     }
 
     override fun openSession() {
